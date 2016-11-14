@@ -1,0 +1,96 @@
+package com.pachong.xfree;
+
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.ByteBuffer;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+
+import com.pachong.util.SaveRecordInTxt;
+
+
+public class Test {
+	public static void main(String[] args) throws Exception{
+		ArrayList<String> records = new ArrayList<>();
+		Test test = new Test();
+		for(int i = 1; i <= 99999999; ++ i){
+			System.out.println(i);
+			String path = "https://movie.douban.com/subject/1/";
+			try {
+				Document doc = test.httpsConnect(path);
+				Element content = doc.getElementById("content");
+				String name = content.getElementsByTag("h1").get(0).text();
+				String score = content.getElementsByClass("rating_num").get(0).text();
+				String personCount = content.select("span[property=v:votes]").get(0).text();
+				String info = content.getElementById("info").text();
+				info = info.substring(info.indexOf("类型:"), info.indexOf("又名:"));
+				StringBuilder builder = new StringBuilder();
+				builder.append(name).append(":").append(score).append(":").append(personCount).append(":").append(info).append("\n");
+				records.add(builder.toString());
+			} catch (Exception e) {
+				continue;
+			}
+			if(records.size() > 1000){
+				SaveRecordInTxt.save(records, "C:\\Users\\Administrator\\Desktop\\2.txt");
+				records.clear();
+			}
+		}
+		SaveRecordInTxt.save(records, "C:\\Users\\Administrator\\Desktop\\2.txt");
+	}
+	
+	public Document httpsConnect(String path) throws Exception{
+		TrustManager[] managers = {new PrivateTrust()};
+		SSLContext context = SSLContext.getInstance("SSL", "SunJSSE");
+		context.init(null, managers, new SecureRandom());
+		
+		HttpsURLConnection connection = (HttpsURLConnection) new URL(path).openConnection();
+		connection.setDoInput(true);
+		connection.setDoOutput(true);
+		connection.setConnectTimeout(3000);
+		connection.setSSLSocketFactory(context.getSocketFactory());
+		InputStream is = connection.getInputStream();
+		ByteBuffer buffer = ByteBuffer.allocate(1024 * 1024 * 32);
+		byte[] b = new byte[1024];
+		int len = 0;
+		while((len = is.read(b)) >= 0){
+			buffer.put(b, 0, len);
+		}
+		connection.disconnect();
+		buffer.flip();
+		String s = new String(buffer.array(), 0, buffer.limit(), "UTF-8");
+		return Jsoup.parse(s);
+	}
+	
+	private class PrivateTrust implements X509TrustManager{
+
+		@Override
+		public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public X509Certificate[] getAcceptedIssuers() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+		
+	}
+}
